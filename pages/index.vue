@@ -1,25 +1,46 @@
 <template>
   <div class="container">
-    <div>
-      <h1 class="title">
-        Stay Awake
-      </h1>
-      <p id="status">OpenCV.js status: {{ status }}</p>
+    <h1 class="title">
+      Stay Awake
+    </h1>
 
-      <canvas id="canvasOutput"></canvas>
+    <div class="dashboardContainer">
+      <div>
+        <div v-if="loading" style:><i class="spinner-border"></i></div>
+        <canvas id="canvasOutput"></canvas>
+      </div>
+      <div style="max-width: 30em; width: 50%">
+        <b-form-input
+          v-model="soundTriggerTime"
+          type="range"
+          min="3000"
+          max="60000"
+        ></b-form-input>
+        <p>Seconds before alarm triggers: {{ soundTriggerTime / 1000 }}</p>
 
-      <b-form-input
-        v-model="soundTriggerTime"
-        type="range"
-        min="3000"
-        max="60000"
-      ></b-form-input>
-      <p>Seconds before alarm triggers: {{ soundTriggerTime / 1000 }}</p>
+        <b-form-file
+        accept=".mp3"
+          v-model="file1"
+          :state="Boolean(file1)"
+          placeholder="Choose a .mp3 file or drop it here..."
+          drop-placeholder="Drop file here..."
+        ></b-form-file>
+        <div class="mt-3">Selected file: {{ file1 ? file1.name : "" }}</div>
 
-      <video id="webcam" autoplay playsinline width="640" height="480"></video>
-
-      <canvas id="canvas" class="d-none"></canvas>
+        <p v-if="timeWithoutSeeingEyes > 0" style="margin-top: 1em">
+          Your eyes have been closed for
+          {{ timeWithoutSeeingEyes / 1000 }} seconds
+        </p>
+      </div>
     </div>
+
+    <video
+      id="webcam"
+      autoplay
+      width="640"
+      height="480"
+      style="display: none"
+    ></video>
   </div>
 </template>
 
@@ -32,10 +53,13 @@ let audio = null;
 export default {
   data() {
     return {
-      status: "not loaded",
+      loading: true,
       soundPlaying: false,
       cvInterval: null,
-      soundTriggerTime: 3000
+      soundTriggerTime: 3000,
+      timeWithoutSeeingEyes: 0,
+      eye_worker: null,
+      file1: null
     };
   },
   head() {
@@ -49,7 +73,6 @@ export default {
           callback: () => {
             this.onOpenCvReady();
             console.log("callback called");
-            this.status = "loaded";
           }
         }
       ]
@@ -57,6 +80,8 @@ export default {
   },
   mounted() {
     video = document.getElementById("webcam");
+    audio = new Audio("SeinfeldTheme.mp3");
+    // this.eye_worker = new Worker("eye_worker.js");
   },
   methods: {
     startCv() {
@@ -68,11 +93,7 @@ export default {
     },
     onOpenCvReady() {
       let utils = new this.Utils("errorMessage"); //use utils class
-      audio = new Audio("SeinfeldTheme.mp3");
-      let processVideo;
       cv.onRuntimeInitialized = () => {
-        //initializing open cv variables
-
         navigator.mediaDevices
           .getUserMedia({ video: true })
           .then(stream => {
@@ -95,24 +116,47 @@ export default {
       const src = new cv.Mat(video.height, video.width, cv.CV_8UC4);
 
       const gray = new cv.Mat();
+
+      let cropped = new cv.Mat();
+      const resized = new cv.Mat();
+
       const faces = new cv.RectVector();
       const eyes = new cv.RectVector();
       const faceCascade = new cv.CascadeClassifier();
       const eyeCascade = new cv.CascadeClassifier();
 
       const msize = new cv.Size(0, 0);
+      const dsize = new cv.Size(300, 300);
+
+      let rect;
+
+      let border;
+      if (video.width > video.height) {
+        border = video.width - video.height;
+
+        console.log(border);
+        rect = new cv.Rect(border, 0, video.width - border, video.height);
+      } else {
+        console.log(border);
+
+        border = video.height - video.width;
+        rect = new cv.Rect(0, border, video.width, video.height - border);
+      }
 
       faceCascade.load(faceCascadeFile);
       eyeCascade.load(eyeCascadeFile);
-
-      let timeWithoutSeeingEyes = 0;
 
       let processVideo = () => {
         let begin = Date.now();
         // start processing.
 
         cap.read(src);
-        cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
+
+        cropped = src.roi(rect);
+
+        cv.resize(cropped, resized, dsize, 0, 0, cv.INTER_AREA);
+
+        cv.cvtColor(resized, gray, cv.COLOR_RGBA2GRAY, 0);
 
         let eyesMax = 0;
 
@@ -122,15 +166,36 @@ export default {
         // Draws rectangles around the face
         for (let i = 0; i < faces.size(); ++i) {
           let roiGray = gray.roi(faces.get(i));
-          let roiSrc = src.roi(faces.get(i));
+          let roiSrc = resized.roi(faces.get(i));
           let point1 = new cv.Point(faces.get(i).x, faces.get(i).y);
           let point2 = new cv.Point(
             faces.get(i).x + faces.get(i).width,
             faces.get(i).y + faces.get(i).height
           );
-          cv.rectangle(src, point1, point2, [255, 0, 0, 255]);
+          cv.rectangle(resized, point1, point2, [255, 0, 0, 255]);
 
-          //running the model to detect the eyes
+          // this.eye_worker.onmessage = e => {
+          //   eyes = e.data;
+          //   console.log("Message received from worker");
+          //   //draw rectangles around the eyes
+          //   for (let j = 0; j < eyes.size(); ++j) {
+          //     let point1 = new cv.Point(eyes.get(j).x, eyes.get(j).y);
+          //     let point2 = new cv.Point(
+          //       eyes.get(j).x + eyes.get(j).width,
+          //       eyes.get(j).y + eyes.get(j).height
+          //     );
+          //     cv.rectangle(roiSrc, point1, point2, [0, 0, 255, 255]);
+          //   }
+
+          //   if (eyesMax < eyes.size()) eyesMax = eyes.size();
+
+          //   roiGray.delete();
+          //   roiSrc.delete();
+          // };
+
+          // this.eye_worker.postMessage(roiGray);
+
+          // //running the model to detect the eyes
           eyeCascade.detectMultiScale(roiGray, eyes);
 
           //draw rectangles around the eyes
@@ -152,27 +217,30 @@ export default {
         let processingTimeMillis = Date.now() - begin;
 
         if (eyesMax == 0) {
-          timeWithoutSeeingEyes += processingTimeMillis;
+          this.timeWithoutSeeingEyes += processingTimeMillis;
         } else {
-          timeWithoutSeeingEyes = 0;
+          this.timeWithoutSeeingEyes = 0;
         }
 
-        console.log(timeWithoutSeeingEyes);
+        console.log(this.timeWithoutSeeingEyes);
 
-        if (timeWithoutSeeingEyes > this.soundTriggerTime) {
+        if (this.timeWithoutSeeingEyes > this.soundTriggerTime) {
           if (!this.soundPlaying) {
             this.soundPlaying = true;
             audio.currentTime = 0;
             audio.play();
-            console.log("Playing audioo");
+            console.log("Playing audio");
           }
         } else {
           this.soundPlaying = false;
           audio.pause();
         }
 
+        //setting loading here because it takes a while for the process to run the first time
+        this.loading = false;
+
         // Draws cv output (src) onto id="canvasOutput"
-        cv.imshow("canvasOutput", src);
+        cv.imshow("canvasOutput", resized);
       };
 
       // start processing the video
@@ -330,6 +398,7 @@ export default {
   justify-content: center;
   align-items: center;
   text-align: center;
+  flex-direction: column;
 }
 
 .title {
@@ -340,6 +409,8 @@ export default {
   font-size: 100px;
   color: #35495e;
   letter-spacing: 1px;
+  position: absolute;
+  top: 0;
 }
 
 .subtitle {
@@ -352,5 +423,17 @@ export default {
 
 .links {
   padding-top: 15px;
+}
+
+#canvasOutput {
+  // transform: scale(1.5);
+  // margin: 20%;
+}
+
+.dashboardContainer {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-around;
+  width: 100%;
 }
 </style>
