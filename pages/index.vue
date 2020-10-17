@@ -5,9 +5,26 @@
     </h1>
 
     <div class="dashboardContainer">
-      <div>
-        <div v-if="loading" style:><i class="spinner-border"></i></div>
-        <canvas id="canvasOutput"></canvas>
+      <div style="display: flex; flex-direction: column; align-items: center;">
+        <div v-if="!cvLoaded">
+          <div v-if="loading"><i class="spinner-border"></i></div>
+        </div>
+        <canvas
+          v-else
+          id="canvasOutput"
+          :style="{ display: loading || !cvInterval ? 'none' : '' }"
+        ></canvas>
+        <b-button
+          v-if="!cvInterval"
+          :disabled="!cvLoaded"
+          @click="onOpenCvReady"
+        >
+          Start Camera
+        </b-button>
+
+        <b-button v-else @click="stopCv">
+          Stop Camera
+        </b-button>
       </div>
       <div style="max-width: 30em; width: 50%">
         <b-form-input
@@ -16,16 +33,18 @@
           min="3000"
           max="60000"
         ></b-form-input>
-        <p>Seconds before alarm triggers: {{ soundTriggerTime / 1000 }}</p>
+        <p>
+          Seconds before alarm triggers:
+          {{ Math.round(soundTriggerTime / 1000) }}
+        </p>
 
         <b-form-file
-        accept=".mp3"
-          v-model="file1"
-          :state="Boolean(file1)"
-          placeholder="Choose a .mp3 file or drop it here..."
+          accept=".mp3"
+          @change="onAudioUpload"
+          placeholder="Choose a .mp3 file for the alarm sound..."
           drop-placeholder="Drop file here..."
         ></b-form-file>
-        <div class="mt-3">Selected file: {{ file1 ? file1.name : "" }}</div>
+        <div v-if="audioName" class="mt-3">File Uploaded: {{ audioName }}</div>
 
         <p v-if="timeWithoutSeeingEyes > 0" style="margin-top: 1em">
           Your eyes have been closed for
@@ -48,7 +67,6 @@
 const faceCascadeFile = "haarcascade_frontalface_default.xml";
 const eyeCascadeFile = "haarcascade_eye.xml";
 let video = null;
-let audio = null;
 
 export default {
   data() {
@@ -59,7 +77,11 @@ export default {
       soundTriggerTime: 3000,
       timeWithoutSeeingEyes: 0,
       eye_worker: null,
-      file1: null
+      audio: null,
+      cvLoaded: false,
+      audioName: "SeinfeldTheme.mp3",
+      videoSetUpComplete: false,
+      proccessVideo: null
     };
   },
   head() {
@@ -71,7 +93,10 @@ export default {
           async: true,
           body: true,
           callback: () => {
-            this.onOpenCvReady();
+            cv.onRuntimeInitialized = () => {
+              this.cvLoaded = true;
+            };
+            // this.onOpenCvReady();
             console.log("callback called");
           }
         }
@@ -80,36 +105,55 @@ export default {
   },
   mounted() {
     video = document.getElementById("webcam");
-    audio = new Audio("SeinfeldTheme.mp3");
+    this.audio = new Audio("SeinfeldTheme.mp3");
     // this.eye_worker = new Worker("eye_worker.js");
   },
   methods: {
+    onAudioUpload(e) {
+      console.log(e);
+      e = e.target.files[0];
+      let reader = new FileReader();
+      this.audioName = e.name;
+      reader.onload = e => {
+        let dataURL = e.target.result;
+        this.audio = new Audio(dataURL);
+      };
+      reader.readAsDataURL(e);
+    },
     startCv() {
-      this.cvInterval ? this.cvInterval.clearInterval() : null;
+      this.cvInterval ? clearInterval(this.cvInterval) : null;
       this.cvInterval = setInterval(this.processVideo, 40);
     },
     stopCv() {
-      this.cvInterval.clearInterval();
+      clearInterval(this.cvInterval);
+      this.cvInterval = null;
+      this.soundPlaying = false;
+      this.audio.pause();
     },
     onOpenCvReady() {
+      console.log("onOpenCvReady called");
       let utils = new this.Utils("errorMessage"); //use utils class
-      cv.onRuntimeInitialized = () => {
-        navigator.mediaDevices
-          .getUserMedia({ video: true })
-          .then(stream => {
-            video.srcObject = stream;
+      if (this.videoSetUpComplete) {
+        this.startCv();
+        return;
+      }
 
-            // use createFileFromUrl to "pre-build" the xml
-            utils.createFileFromUrl(faceCascadeFile, faceCascadeFile, () => {
-              utils.createFileFromUrl(eyeCascadeFile, eyeCascadeFile, () => {
-                this.setUpProcessVideo();
-              });
+      navigator.mediaDevices
+        .getUserMedia({ video: true })
+        .then(stream => {
+          video.srcObject = stream;
+
+          // use createFileFromUrl to "pre-build" the xml
+          utils.createFileFromUrl(faceCascadeFile, faceCascadeFile, () => {
+            utils.createFileFromUrl(eyeCascadeFile, eyeCascadeFile, () => {
+              this.videoSetUpComplete = true;
+              this.setUpProcessVideo();
             });
-          })
-          .catch(function(err0r) {
-            console.log(err0r);
           });
-      };
+        })
+        .catch(function(err0r) {
+          console.log(err0r);
+        });
     },
     setUpProcessVideo() {
       const cap = new cv.VideoCapture(video);
@@ -151,11 +195,8 @@ export default {
         // start processing.
 
         cap.read(src);
-
         cropped = src.roi(rect);
-
         cv.resize(cropped, resized, dsize, 0, 0, cv.INTER_AREA);
-
         cv.cvtColor(resized, gray, cv.COLOR_RGBA2GRAY, 0);
 
         let eyesMax = 0;
@@ -227,13 +268,13 @@ export default {
         if (this.timeWithoutSeeingEyes > this.soundTriggerTime) {
           if (!this.soundPlaying) {
             this.soundPlaying = true;
-            audio.currentTime = 0;
-            audio.play();
+            this.audio.currentTime = 0;
+            this.audio.play();
             console.log("Playing audio");
           }
         } else {
           this.soundPlaying = false;
-          audio.pause();
+          this.audio.pause();
         }
 
         //setting loading here because it takes a while for the process to run the first time
@@ -242,7 +283,7 @@ export default {
         // Draws cv output (src) onto id="canvasOutput"
         cv.imshow("canvasOutput", resized);
       };
-
+      this.processVideo = processVideo;
       // start processing the video
       this.cvInterval = setInterval(processVideo, 40);
     },
@@ -426,8 +467,7 @@ export default {
 }
 
 #canvasOutput {
-  // transform: scale(1.5);
-  // margin: 20%;
+  border-radius: 0.5rem;
 }
 
 .dashboardContainer {
@@ -435,5 +475,10 @@ export default {
   flex-direction: row;
   justify-content: space-around;
   width: 100%;
+}
+
+.btn {
+  width: 10em;
+  margin: 1rem;
 }
 </style>
