@@ -1,7 +1,6 @@
 <template>
   <div class="container">
     <div>
-      <Logo />
       <h1 class="title">
         Stay Awake
       </h1>
@@ -9,23 +8,8 @@
 
       <canvas id="canvasOutput"></canvas>
 
-      <!-- <script async src="./utils.js" type="text/javascript"></script>
-      <script async src="./index.js" type="text/javascript"></script> -->
-      <!-- <script
-        async
-        src="opencv.js"
-        onload="onOpenCvReady();"
-        type="text/javascript"
-      ></script> -->
-
-      <!-- <script
-        async
-        src="https://docs.opencv.org/master/opencv.js"
-        :onload="onOpenCvReady()"
-        type="text/javascript"
-      ></script> -->
-      <!-- should be able to download fron cdn -->
       <video id="webcam" autoplay playsinline width="640" height="480"></video>
+
       <canvas id="canvas" class="d-none"></canvas>
     </div>
   </div>
@@ -38,18 +22,31 @@ export default {
       status: "not loaded"
     };
   },
-  mounted() {
-    console.log(cv);
-    this.onOpenCvReady();
+  head() {
+    return {
+      script: [
+        {
+          type: "text/javascript",
+          src: "https://docs.opencv.org/master/opencv.js",
+          async: true,
+          body: true,
+          callback: () => {
+            onOpenCvReady();
+            console.log("callback called");
+            this.status = "loaded";
+          }
+        }
+      ]
+    };
   },
+  mounted() {},
   methods: {
-    onOpenCvReady: function() {
-      console.log("Open CV Loaded");
-      this.status = "loaded";
-
-      cv["onRuntimeInitialized"] = () => {
-        this.status = "onRuntimeInitialized"
-      };
+    startCv() {
+      cvInterval ? cvInterval.clearInterval() : null;
+      cvInterval = setInterval(processVideo, 40);
+    },
+    stopCv() {
+      cvInterval.clearInterval();
     }
   }
 };
