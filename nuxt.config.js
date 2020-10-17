@@ -14,19 +14,6 @@ export default {
             { hid: "description", name: "description", content: "" }
         ],
         link: [{ rel: "icon", type: "image/x-icon", href: "/favicon.ico" }],
-        script: [{
-                type: "text/javascript",
-                src: "./utils.js"
-                    // async: true,
-                    // body: true
-            },
-            {
-                type: "text/javascript",
-                src: "index.js"
-                    // async: true,
-                    // body: true
-            }
-        ]
     },
 
     // Global CSS (https://go.nuxtjs.dev/config-css)
