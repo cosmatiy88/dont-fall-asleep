@@ -3,35 +3,59 @@
     <div>
       <Logo />
       <h1 class="title">
-        owlhacks-10-2020
+        Stay Awake
       </h1>
-      <div class="links">
-        <a
-          href="https://nuxtjs.org/"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="button--green"
-        >
-          Documentation
-        </a>
-        <a
-          href="https://github.com/nuxt/nuxt.js"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="button--grey"
-        >
-          GitHub
-        </a>
-      </div>
+      <p id="status">OpenCV.js status: {{ status }}</p>
+
+      <canvas id="canvasOutput"></canvas>
+
+      <!-- <script async src="./utils.js" type="text/javascript"></script>
+      <script async src="./index.js" type="text/javascript"></script> -->
+      <!-- <script
+        async
+        src="opencv.js"
+        onload="onOpenCvReady();"
+        type="text/javascript"
+      ></script> -->
+
+      <!-- <script
+        async
+        src="https://docs.opencv.org/master/opencv.js"
+        :onload="onOpenCvReady()"
+        type="text/javascript"
+      ></script> -->
+      <!-- should be able to download fron cdn -->
+      <video id="webcam" autoplay playsinline width="640" height="480"></video>
+      <canvas id="canvas" class="d-none"></canvas>
     </div>
   </div>
 </template>
 
 <script>
-export default {}
+export default {
+  data() {
+    return {
+      status: "not loaded"
+    };
+  },
+  mounted() {
+    console.log(cv);
+    this.onOpenCvReady();
+  },
+  methods: {
+    onOpenCvReady: function() {
+      console.log("Open CV Loaded");
+      this.status = "loaded";
+
+      cv["onRuntimeInitialized"] = () => {
+        this.status = "onRuntimeInitialized"
+      };
+    }
+  }
+};
 </script>
 
-<style>
+<style scoped lang="scss">
 .container {
   margin: 0 auto;
   min-height: 100vh;
@@ -42,16 +66,8 @@ export default {}
 }
 
 .title {
-  font-family:
-    'Quicksand',
-    'Source Sans Pro',
-    -apple-system,
-    BlinkMacSystemFont,
-    'Segoe UI',
-    Roboto,
-    'Helvetica Neue',
-    Arial,
-    sans-serif;
+  font-family: "Quicksand", "Source Sans Pro", -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   display: block;
   font-weight: 300;
   font-size: 100px;
