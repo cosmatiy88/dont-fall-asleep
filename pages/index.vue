@@ -1,11 +1,34 @@
 <template>
   <div class="container">
-    <h1 class="title">
-      Don't Fall Alseep
-    </h1>
-
-    <div class="dashboardContainer">
-      <div style="display: flex; flex-direction: column; align-items: center;">
+    <div class="mb-4">
+      <h1 class="display-4">
+        <i>Don't Fall Asleep</i>
+      </h1>
+      <b-button v-b-modal="'info-modal'"
+        >Info</b-button
+      >
+    </div>
+    <b-modal hide-footer id="info-modal">
+      <div class="d-block text-center">
+        <p style="font-size: large">
+          Don't Fall Asleep is a web app that uses your webcam to detect if you
+          have fallen asleep. If your eyes are closed, or your head is out of
+          the frame, you are considered alseep and the app will play an .mp3
+          file of your choice to wake you up. The sound will stop playing only
+          when it detects your eyes again.
+        </p>
+        <b-button
+          class="mt-3mr-0 ml-0 w-100"
+          block
+          variant="outline-danger"
+          @click="$bvModal.hide('info-modal')"
+          style="text-align: center"
+          >I'm ready to sleep deprive myself</b-button
+        >
+      </div>
+    </b-modal>
+    <div class="dashboardContainer card shadow bg-white rounded">
+      <div class="videoContainer">
         <div v-if="!cvLoaded">
           <div v-if="loading"><i class="spinner-border"></i></div>
         </div>
@@ -36,21 +59,24 @@
           min="3000"
           max="60000"
         ></b-form-input>
-        <p>
-          Seconds before alarm triggers:
-          {{ Math.round(soundTriggerTime / 1000) }}
+        <p style="margin-bottom: 1em">
+          Time sleeping before alarm triggers:
+          {{ Math.round(soundTriggerTime / 1000) }} seconds
         </p>
 
         <b-form-file
           accept=".mp3"
           @change="onAudioUpload"
           :disabled="soundPlaying"
-          placeholder="Choose a .mp3 file for the alarm sound..."
+          placeholder="Choose a .mp3 file"
           drop-placeholder="Drop file here..."
         ></b-form-file>
         <div v-if="audioName" class="mt-3">File Uploaded: {{ audioName }}</div>
 
-        <p v-if="timeWithoutSeeingEyes > 0" style="margin-top: 1em">
+        <p
+          v-if="timeWithoutSeeingEyes > 0"
+          style="margin-top: 1em; font-weight: 400"
+        >
           Your eyes have been closed for
           {{ Math.round(timeWithoutSeeingEyes / 1000) }} seconds
         </p>
@@ -226,12 +252,6 @@ export default {
         for (let i = 0; i < faces.size(); ++i) {
           let roiGray = gray.roi(faces.get(i));
           let roiSrc = resized.roi(faces.get(i));
-          let point1 = new cv.Point(faces.get(i).x, faces.get(i).y);
-          let point2 = new cv.Point(
-            faces.get(i).x + faces.get(i).width,
-            faces.get(i).y + faces.get(i).height
-          );
-          cv.rectangle(resized, point1, point2, [255, 0, 0, 255]);
 
           // //running the model to detect the eyes
           eyeCascade.detectMultiScale(roiGray, eyes);
@@ -244,6 +264,15 @@ export default {
               eyes.get(j).y + eyes.get(j).height
             );
             cv.rectangle(roiSrc, point1, point2, [0, 0, 255, 255]);
+          }
+
+          if (eyes.size() > 0) {
+            let point1 = new cv.Point(faces.get(i).x, faces.get(i).y);
+            let point2 = new cv.Point(
+              faces.get(i).x + faces.get(i).width,
+              faces.get(i).y + faces.get(i).height
+            );
+            cv.rectangle(resized, point1, point2, [255, 0, 0, 255]);
           }
 
           if (eyesMax < eyes.size()) eyesMax = eyes.size();
@@ -430,9 +459,9 @@ export default {
 <style scoped lang="scss">
 .container {
   margin: 0 auto;
-  min-height: 100vh;
+  min-height: 95vh;
   display: flex;
-  justify-content: center;
+  justify-content: flex-start;
   align-items: center;
   text-align: center;
   flex-direction: column;
@@ -446,8 +475,6 @@ export default {
   font-size: 100px;
   color: #35495e;
   letter-spacing: 1px;
-  position: absolute;
-  top: 0;
 }
 
 .subtitle {
@@ -471,6 +498,16 @@ export default {
   flex-direction: row;
   justify-content: space-around;
   width: 100%;
+  padding: 3em 1em;
+}
+
+.videoContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 300px;
+  height: 350px;
 }
 
 .btn {

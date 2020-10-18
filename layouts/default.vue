@@ -1,20 +1,24 @@
 <template>
   <div>
     <Nuxt />
+    <footer class="bg-light" style="">
+      <div style="height: 5vh">
+        <p class="text-center" style="margin: 0;">
+          Made by <a href="https://thomasch.in">Thomas Chin</a> and
+          <a href="https://www.linkedin.com/in/andrew-caylor-377a03198/"
+            >Andrew Caylor</a
+          >
+          for Temple OwlHacks, 10/17/2020
+        </p>
+      </div>
+    </footer>
   </div>
 </template>
 
 <style>
 html {
-  font-family:
-    'Source Sans Pro',
-    -apple-system,
-    BlinkMacSystemFont,
-    'Segoe UI',
-    Roboto,
-    'Helvetica Neue',
-    Arial,
-    sans-serif;
+  font-family: "Source Sans Pro", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Roboto, "Helvetica Neue", Arial, sans-serif;
   font-size: 16px;
   word-spacing: 1px;
   -ms-text-size-adjust: 100%;
@@ -22,6 +26,7 @@ html {
   -moz-osx-font-smoothing: grayscale;
   -webkit-font-smoothing: antialiased;
   box-sizing: border-box;
+  overflow-x: hidden;
 }
 
 *,
