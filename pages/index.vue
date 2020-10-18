@@ -11,7 +11,7 @@
         <p style="font-size: large">
           Don't Fall Asleep is a web app that uses your webcam to detect if you
           have fallen asleep. If your eyes are closed, or your head is out of
-          the frame, you are considered alseep and the app will play an .mp3
+          the frame, you are considered asleep and the app will play an audio
           file of your choice to wake you up. The sound will stop playing only
           when it detects your eyes again.
         </p>
