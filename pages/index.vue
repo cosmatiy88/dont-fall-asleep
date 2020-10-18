@@ -63,10 +63,10 @@
         </p>
 
         <b-form-file
-          accept=".mp3"
+          accept="audio/*"
           @change="onAudioUpload"
           :disabled="soundPlaying"
-          placeholder="Choose a .mp3 file"
+          placeholder="Choose an audio file"
           drop-placeholder="Drop file here..."
         ></b-form-file>
         <div v-if="audioName" class="mt-3">File Uploaded: {{ audioName }}</div>
@@ -126,7 +126,7 @@ export default {
               this.cvLoaded = true;
             };
             // this.onOpenCvReady();
-            console.log("callback called");
+            // console.log("callback called");
           }
         }
       ]
@@ -142,7 +142,7 @@ export default {
   },
   methods: {
     onAudioUpload(e) {
-      console.log(e);
+      // console.log(e);
       e = e.target.files[0];
       let reader = new FileReader();
       this.audioName = e.name;
@@ -183,7 +183,7 @@ export default {
       this.loading = true;
     },
     onOpenCvReady() {
-      console.log("onOpenCvReady called");
+      // console.log("onOpenCvReady called");
       let utils = new this.Utils("errorMessage"); //use utils class
       if (this.videoSetUpComplete) {
         this.startCv();
@@ -300,7 +300,7 @@ export default {
             this.soundPlaying = true;
             this.audio.currentTime = 0;
             this.audio.play();
-            console.log("Playing audio");
+            // console.log("Playing audio");
           }
         } else {
           this.soundPlaying = false;
@@ -331,12 +331,12 @@ export default {
         script.setAttribute("type", "text/javascript");
         script.addEventListener("load", () => {
           if (cv.getBuildInformation) {
-            console.log(cv.getBuildInformation());
+            // console.log(cv.getBuildInformation());
             onloadCallback();
           } else {
             // WASM
             cv["onRuntimeInitialized"] = () => {
-              console.log(cv.getBuildInformation());
+              // console.log(cv.getBuildInformation());
               onloadCallback();
             };
           }
