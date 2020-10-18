@@ -2,8 +2,8 @@
   <div>
     <Nuxt />
     <footer class="bg-light" style="">
-      <div style="height: 5vh">
-        <p class="text-center" style="margin: 0;">
+      <div style="height: 5vh; display: flex; flex-direction: column;">
+        <p class="text-center" style="margin: auto;">
           Made by <a href="https://thomasch.in">Thomas Chin</a> and
           <a href="https://www.linkedin.com/in/andrew-caylor-377a03198/"
             >Andrew Caylor</a

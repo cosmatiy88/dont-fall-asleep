@@ -4,9 +4,7 @@
       <h1 class="display-4">
         <i>Don't Fall Asleep</i>
       </h1>
-      <b-button v-b-modal="'info-modal'"
-        >Info</b-button
-      >
+      <b-button v-b-modal="'info-modal'">Info</b-button>
     </div>
     <b-modal hide-footer id="info-modal">
       <div class="d-block text-center">
@@ -137,6 +135,10 @@ export default {
   mounted() {
     video = document.getElementById("webcam");
     this.audio = new Audio("SeinfeldTheme.mp3");
+    this.audio.addEventListener("ended", () => {
+      this.audio.currentTime = 0;
+      this.audio.play();
+    });
   },
   methods: {
     onAudioUpload(e) {
@@ -147,6 +149,10 @@ export default {
       reader.onload = e => {
         let dataURL = e.target.result;
         this.audio = new Audio(dataURL);
+        this.audio.addEventListener("ended", () => {
+          this.audio.currentTime = 0;
+          this.audio.play();
+        });
       };
       reader.readAsDataURL(e);
     },
