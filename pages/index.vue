@@ -1,7 +1,7 @@
 <template>
   <div class="container">
     <h1 class="title">
-      Stay Awake
+      Don't Fall Alseep
     </h1>
 
     <div class="dashboardContainer">
@@ -9,6 +9,9 @@
         <div v-if="!cvLoaded">
           <div v-if="loading"><i class="spinner-border"></i></div>
         </div>
+
+        <div v-if="videoStreamLoading"><i class="spinner-border"></i></div>
+
         <canvas
           v-else
           id="canvasOutput"
@@ -41,6 +44,7 @@
         <b-form-file
           accept=".mp3"
           @change="onAudioUpload"
+          :disabled="soundPlaying"
           placeholder="Choose a .mp3 file for the alarm sound..."
           drop-placeholder="Drop file here..."
         ></b-form-file>
@@ -48,7 +52,7 @@
 
         <p v-if="timeWithoutSeeingEyes > 0" style="margin-top: 1em">
           Your eyes have been closed for
-          {{ timeWithoutSeeingEyes / 1000 }} seconds
+          {{ Math.round(timeWithoutSeeingEyes / 1000) }} seconds
         </p>
       </div>
     </div>
@@ -67,6 +71,7 @@
 const faceCascadeFile = "haarcascade_frontalface_default.xml";
 const eyeCascadeFile = "haarcascade_eye.xml";
 let video = null;
+let videoStream = null;
 
 export default {
   data() {
@@ -76,12 +81,12 @@ export default {
       cvInterval: null,
       soundTriggerTime: 3000,
       timeWithoutSeeingEyes: 0,
-      eye_worker: null,
       audio: null,
       cvLoaded: false,
       audioName: "SeinfeldTheme.mp3",
       videoSetUpComplete: false,
-      proccessVideo: null
+      proccessVideo: null,
+      videoStreamLoading: false
     };
   },
   head() {
@@ -106,7 +111,6 @@ export default {
   mounted() {
     video = document.getElementById("webcam");
     this.audio = new Audio("SeinfeldTheme.mp3");
-    // this.eye_worker = new Worker("eye_worker.js");
   },
   methods: {
     onAudioUpload(e) {
@@ -121,14 +125,30 @@ export default {
       reader.readAsDataURL(e);
     },
     startCv() {
-      this.cvInterval ? clearInterval(this.cvInterval) : null;
-      this.cvInterval = setInterval(this.processVideo, 40);
+      this.videoStreamLoading = true;
+      navigator.mediaDevices
+        .getUserMedia({ video: true })
+        .then(stream => {
+          videoStream = stream;
+          video.srcObject = videoStream;
+          // use createFileFromUrl to "pre-build" the xml
+          this.cvInterval ? clearInterval(this.cvInterval) : null;
+          this.cvInterval = setInterval(this.processVideo, 0);
+        })
+        .catch(function(err0r) {
+          console.log(err0r);
+        });
     },
     stopCv() {
       clearInterval(this.cvInterval);
       this.cvInterval = null;
       this.soundPlaying = false;
       this.audio.pause();
+      videoStream.getTracks().forEach(function(track) {
+        track.stop();
+      });
+      this.timeWithoutSeeingEyes = 0;
+      this.loading = true;
     },
     onOpenCvReady() {
       console.log("onOpenCvReady called");
@@ -138,11 +158,12 @@ export default {
         return;
       }
 
+      this.videoStreamLoading = true;
       navigator.mediaDevices
         .getUserMedia({ video: true })
         .then(stream => {
-          video.srcObject = stream;
-
+          videoStream = stream;
+          video.srcObject = videoStream;
           // use createFileFromUrl to "pre-build" the xml
           utils.createFileFromUrl(faceCascadeFile, faceCascadeFile, () => {
             utils.createFileFromUrl(eyeCascadeFile, eyeCascadeFile, () => {
@@ -161,7 +182,7 @@ export default {
 
       const gray = new cv.Mat();
 
-      let cropped = new cv.Mat();
+      let cropped;
       const resized = new cv.Mat();
 
       const faces = new cv.RectVector();
@@ -174,17 +195,13 @@ export default {
 
       let rect;
 
-      let border;
+      let difference;
       if (video.width > video.height) {
-        border = video.width - video.height;
-
-        console.log(border);
-        rect = new cv.Rect(border, 0, video.width - border, video.height);
+        difference = (video.width - video.height) / 2;
+        rect = new cv.Rect(difference, 0, video.height, video.height);
       } else {
-        console.log(border);
-
-        border = video.height - video.width;
-        rect = new cv.Rect(0, border, video.width, video.height - border);
+        difference = (video.height - video.width) / 2;
+        rect = new cv.Rect(0, difference, video.width, video.width);
       }
 
       faceCascade.load(faceCascadeFile);
@@ -195,6 +212,7 @@ export default {
         // start processing.
 
         cap.read(src);
+
         cropped = src.roi(rect);
         cv.resize(cropped, resized, dsize, 0, 0, cv.INTER_AREA);
         cv.cvtColor(resized, gray, cv.COLOR_RGBA2GRAY, 0);
@@ -214,27 +232,6 @@ export default {
             faces.get(i).y + faces.get(i).height
           );
           cv.rectangle(resized, point1, point2, [255, 0, 0, 255]);
-
-          // this.eye_worker.onmessage = e => {
-          //   eyes = e.data;
-          //   console.log("Message received from worker");
-          //   //draw rectangles around the eyes
-          //   for (let j = 0; j < eyes.size(); ++j) {
-          //     let point1 = new cv.Point(eyes.get(j).x, eyes.get(j).y);
-          //     let point2 = new cv.Point(
-          //       eyes.get(j).x + eyes.get(j).width,
-          //       eyes.get(j).y + eyes.get(j).height
-          //     );
-          //     cv.rectangle(roiSrc, point1, point2, [0, 0, 255, 255]);
-          //   }
-
-          //   if (eyesMax < eyes.size()) eyesMax = eyes.size();
-
-          //   roiGray.delete();
-          //   roiSrc.delete();
-          // };
-
-          // this.eye_worker.postMessage(roiGray);
 
           // //running the model to detect the eyes
           eyeCascade.detectMultiScale(roiGray, eyes);
@@ -263,8 +260,6 @@ export default {
           this.timeWithoutSeeingEyes = 0;
         }
 
-        console.log(this.timeWithoutSeeingEyes);
-
         if (this.timeWithoutSeeingEyes > this.soundTriggerTime) {
           if (!this.soundPlaying) {
             this.soundPlaying = true;
@@ -279,13 +274,14 @@ export default {
 
         //setting loading here because it takes a while for the process to run the first time
         this.loading = false;
+        this.videoStreamLoading = false;
 
         // Draws cv output (src) onto id="canvasOutput"
         cv.imshow("canvasOutput", resized);
       };
       this.processVideo = processVideo;
       // start processing the video
-      this.cvInterval = setInterval(processVideo, 40);
+      this.cvInterval = setInterval(processVideo, 0);
     },
     Utils(errorOutputId) {
       // eslint-disable-line no-unused-vars
