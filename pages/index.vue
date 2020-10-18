@@ -147,6 +147,10 @@ export default {
       let reader = new FileReader();
       this.audioName = e.name;
       reader.onload = e => {
+        // Stops audio if it's already playing
+        this.audio.pause();
+        this.timeWithoutSeeingEyes = 0;
+
         let dataURL = e.target.result;
         this.audio = new Audio(dataURL);
         this.audio.addEventListener("ended", () => {
